@@ -2,7 +2,7 @@ name: Update botanical gallery
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 21 * * *"
 permissions:
   contents: write
 jobs:
