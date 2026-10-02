@@ -32,8 +32,40 @@ def normalize(tid,d,seed=False):
 def is_plant(p):
     return bool(p["photos"]) and any(k in (p["text"] or "") for k in KEYWORDS)
 
+def discover_ids():
+    url="https://syndication.twitter.com/srv/timeline-profile/screen-name/yukio_maeda"
+    req=urllib.request.Request(url,headers={"User-Agent":UA,"Accept":"text/html"})
+    try:
+        with urllib.request.urlopen(req,timeout=25) as r:
+            html=r.read().decode("utf-8","replace")
+        m=re.search(r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',html,re.S)
+        if not m: return []
+        data=json.loads(m.group(1))
+        entries=data.get("props",{}).get("pageProps",{}).get("timeline",{}).get("entries",[])
+        ids=[]
+        for e in entries:
+            tw=(e.get("content") or {}).get("tweet") or {}
+            tid=tw.get("id_str")
+            if tid: ids.append(str(tid))
+        print("discovered",len(ids),"timeline posts")
+        return ids
+    except Exception as e:
+        print("timeline discovery unavailable:",e)
+        return []
+
 def main():
     old=json.loads(DATA.read_text(encoding="utf-8"))
+    known={p["id"]:p for p in old}
+    for tid in discover_ids():
+        if tid not in known:
+            try:
+                n=normalize(tid,tweet(tid),False)
+                if is_plant(n):
+                    known[tid]=n
+                    print("added plant post",tid)
+            except Exception as e:
+                print("new post fetch failed",tid,e)
+    old=list(known.values())
     out=[]
     for p in old:
         try:
